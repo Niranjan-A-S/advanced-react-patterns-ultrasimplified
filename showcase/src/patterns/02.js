@@ -1,7 +1,7 @@
-import React from  "react"
+import React from "react";
 
 const Clap = () => {
-  return <h1>Clap Component2</h1>
-}
+  return <h1>Clap Component2</h1>;
+};
 
-export default Clap 
+export default Clap;
