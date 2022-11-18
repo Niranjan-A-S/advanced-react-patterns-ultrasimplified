@@ -131,7 +131,7 @@ const useClapState = (initialState = INITIAL_STATE) => {
   const MAXIMUM_USER_CLAP = 12;
 
   const [clapState, setClapState] = useState(initialState);
-  const { count, countTotal } = clapState;
+  const { count, countTotal, isClicked } = clapState;
 
   const updateClapState = useCallback(() => {
     setClapState((prevState) => ({
@@ -146,25 +146,30 @@ const useClapState = (initialState = INITIAL_STATE) => {
 
   //props for CountTotal
 
-  const clapTotalProps = {
+  const clapTotalProps = () => ({
     countTotal,
-  };
+  });
 
   //props for  "ClapContainer"
-  const togglerProps = {
+  const getTogglerProps = ({ ...otherProps }) => ({
     updateClapState,
-  };
+    "aria-pressed": isClicked,
+    ...otherProps,
+  });
 
   //props for  "ClapCount"
-  const countProps = {
+  const getCountProps = () => ({
     clapCount: count,
-  };
+    "aria-valuemax": MAXIMUM_USER_CLAP,
+    "aria-valuemin": 0,
+    "aria-valuenow": count,
+  });
 
   return {
     clapState,
     updateClapState,
-    togglerProps,
-    countProps,
+    getTogglerProps,
+    getCountProps,
     clapTotalProps,
   };
 };
@@ -226,7 +231,7 @@ const CountTotal = ({ countTotal, setRef, ...restProps }) => {
 //Usage
 
 const Usage = () => {
-  const { clapState, countProps, togglerProps, clapTotalProps } =
+  const { clapState, getCountProps, getTogglerProps, clapTotalProps } =
     useClapState();
 
   const { count, countTotal, isClicked } = clapState;
@@ -247,22 +252,29 @@ const Usage = () => {
     <ClapContainer
       setRef={setRef}
       data-refkey="clapRef"
-      {...togglerProps}
+      {...getTogglerProps({
+        "aria-pressed": false,
+        // onClick: not covered this section call functions in sequence
+      })}
       className={styles.clap}
     >
       <ClapIcon isClicked={isClicked} />
       {/* use case for prop collection so that it can be reused for other other
       components */}
-      <div>
+      {/* <div>
         {count}
         <br />
         {countTotal}
-      </div>
-      <ClapCount data-refkey="clapCountRef" {...countProps} setRef={setRef} />
+      </div> */}
+      <ClapCount
+        data-refkey="clapCountRef"
+        {...getCountProps()}
+        setRef={setRef}
+      />
       <CountTotal
         data-refkey="clapTotalRef"
         setRef={setRef}
-        {...clapTotalProps}
+        {...clapTotalProps()}
       />
     </ClapContainer>
   );
