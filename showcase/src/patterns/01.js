@@ -100,7 +100,6 @@ const MediumClap = ({ animation }) => {
   const MAXIMUM_USER_CLAP = 12;
 
   const [clapState, setClapState] = useState(initialState);
-
   const { count, countTotal, isClicked } = clapState;
 
   const handleClapClick = () => {
@@ -167,3 +166,11 @@ const Usage = () => {
 };
 
 export default Usage;
+
+// import React from "react";
+
+// const Clap = () => {
+//   return <div>Clap</div>;
+// };
+
+// export default Clap;

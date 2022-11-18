@@ -1,10 +1,15 @@
 import React, {
-  Component,
+  createContext,
   useCallback,
+  useContext,
   useLayoutEffect,
   useState,
+  useMemo,
+  useEffect,
+  useRef,
 } from "react";
 import styles from "./index.css";
+import usageStyles from "./usage.css";
 import mojs from "mo-js";
 
 const initialState = {
@@ -12,6 +17,8 @@ const initialState = {
   countTotal: 267,
   isClicked: false,
 };
+
+//compound components pattern
 
 // custom hooks for animation logic
 
@@ -104,12 +111,14 @@ const useClapAnimation = ({ clapEl, countEl, clapTotalEl }) => {
 
   return animationTimeline;
 };
+const MediumClapContext = createContext();
+const { Provider } = MediumClapContext;
 
-const MediumClap = () => {
+const MediumClap = ({ children, onClap, userStyles, className, values }) => {
   const MAXIMUM_USER_CLAP = 12;
 
   const [clapState, setClapState] = useState(initialState);
-  const { count, countTotal, isClicked } = clapState;
+  const { count } = clapState;
 
   const [{ clapRef, clapCountRef, clapTotalRef }, setRefState] = useState({});
 
@@ -130,42 +139,78 @@ const MediumClap = () => {
     clapTotalEl: clapTotalRef,
   });
 
+  const componentMounted = useRef(true);
+
+  useEffect(() => {
+    if (!componentMounted.current && !isControlled) {
+      onClap && onClap(clapState);
+    }
+    componentMounted.current = false;
+  }, [count, onClap, isControlled]);
+
+  const isControlled = !!values && onClap;
+
   const handleClapClick = () => {
     animationTimeline.replay();
 
-    setClapState((prevState) => ({
-      count: Math.min(prevState.count + 1, MAXIMUM_USER_CLAP),
-      countTotal:
-        count < MAXIMUM_USER_CLAP
-          ? prevState.countTotal + 1
-          : prevState.countTotal,
-      isClicked: true,
-    }));
+    isControlled
+      ? onClap()
+      : setClapState((prevState) => ({
+          count: Math.min(prevState.count + 1, MAXIMUM_USER_CLAP),
+          countTotal:
+            count < MAXIMUM_USER_CLAP
+              ? prevState.countTotal + 1
+              : prevState.countTotal,
+          isClicked: true,
+        }));
   };
 
+  const getState = useCallback(
+    () => (isControlled ? values : clapState),
+    [isControlled, values, clapState]
+  );
+
+  const memoizedValue = useMemo(
+    () => ({
+      ...getState(),
+      setRef,
+    }),
+    [getState, setRef]
+  );
+
+  const classNames = [styles.clap, className].join(" ").trim();
+
   return (
-    <button
-      ref={setRef}
-      data-refkey="clapRef"
-      onClick={handleClapClick}
-      className={styles.clap}
-    >
-      <ClapIcon isClicked={isClicked} />
-      <ClapCount clapCount={count} setRef={setRef} />
-      <CountTotal countTotal={countTotal} setRef={setRef} />
-    </button>
+    <Provider value={memoizedValue}>
+      <button
+        ref={setRef}
+        data-refkey="clapRef"
+        onClick={handleClapClick}
+        className={classNames}
+        style={userStyles}
+      >
+        {children}
+      </button>
+    </Provider>
   );
 };
 
 // sub components
 
-const ClapIcon = ({ isClicked, setRef }) => {
+const ClapIcon = ({ style: userStyles = {}, className }) => {
+  const { isClicked } = useContext(MediumClapContext);
+
+  const classNames = [styles.icon, isClicked ? styles.checked : "", className]
+    .join(" ")
+    .trim();
+
   return (
     <span>
       <svg
-        className={`${styles.icon} ${isClicked && styles.checked}`}
+        className={classNames}
         xmlns="http://www.w3.org/2000/svg"
         viewBox="-549 338 100.1 125"
+        style={userStyles}
       >
         <path d="M-471.2 366.8c1.2 1.1 1.9 2.6 2.3 4.1.4-.3.8-.5 1.2-.7 1-1.9.7-4.3-1-5.9-2-1.9-5.2-1.9-7.2.1l-.2.2c1.8.1 3.6.9 4.9 2.2zm-28.8 14c.4.9.7 1.9.8 3.1l16.5-16.9c.6-.6 1.4-1.1 2.1-1.5 1-1.9.7-4.4-.9-6-2-1.9-5.2-1.9-7.2.1l-15.5 15.9c2.3 2.2 3.1 3 4.2 5.3zm-38.9 39.7c-.1-8.9 3.2-17.2 9.4-23.6l18.6-19c.7-2 .5-4.1-.1-5.3-.8-1.8-1.3-2.3-3.6-4.5l-20.9 21.4c-10.6 10.8-11.2 27.6-2.3 39.3-.6-2.6-1-5.4-1.1-8.3z" />
         <path d="M-527.2 399.1l20.9-21.4c2.2 2.2 2.7 2.6 3.5 4.5.8 1.8 1 5.4-1.6 8l-11.8 12.2c-.5.5-.4 1.2 0 1.7.5.5 1.2.5 1.7 0l34-35c1.9-2 5.2-2.1 7.2-.1 2 1.9 2 5.2.1 7.2l-24.7 25.3c-.5.5-.4 1.2 0 1.7.5.5 1.2.5 1.7 0l28.5-29.3c2-2 5.2-2 7.1-.1 2 1.9 2 5.1.1 7.1l-28.5 29.3c-.5.5-.4 1.2 0 1.7.5.5 1.2.4 1.7 0l24.7-25.3c1.9-2 5.1-2.1 7.1-.1 2 1.9 2 5.2.1 7.2l-24.7 25.3c-.5.5-.4 1.2 0 1.7.5.5 1.2.5 1.7 0l14.6-15c2-2 5.2-2 7.2-.1 2 2 2.1 5.2.1 7.2l-27.6 28.4c-11.6 11.9-30.6 12.2-42.5.6-12-11.7-12.2-30.8-.6-42.7m18.1-48.4l-.7 4.9-2.2-4.4m7.6.9l-3.7 3.4 1.2-4.8m5.5 4.7l-4.8 1.6 3.1-3.9" />
@@ -174,17 +219,32 @@ const ClapIcon = ({ isClicked, setRef }) => {
   );
 };
 
-const ClapCount = ({ clapCount, setRef }) => {
+const ClapCount = ({ userStyles, className }) => {
+  const { count, setRef } = useContext(MediumClapContext);
+  const classNames = [styles.count, className].join(" ").trim();
   return (
-    <span ref={setRef} data-refkey="clapCountRef" className={styles.count}>
-      + {clapCount}
+    <span
+      ref={setRef}
+      data-refkey="clapCountRef"
+      className={classNames}
+      style={userStyles}
+    >
+      + {count}
     </span>
   );
 };
 
-const CountTotal = ({ countTotal, setRef }) => {
+const CountTotal = ({ userStyles, className }) => {
+  const { countTotal, setRef } = useContext(MediumClapContext);
+  const classNames = [styles.total, className].join(" ").trim();
+
   return (
-    <span ref={setRef} data-refkey="clapTotalRef" className={styles.total}>
+    <span
+      ref={setRef}
+      data-refkey="clapTotalRef"
+      className={classNames}
+      style={userStyles}
+    >
       {countTotal}
     </span>
   );
@@ -193,4 +253,74 @@ const CountTotal = ({ countTotal, setRef }) => {
 // export default MediumClap;
 //Usage
 
-export default MediumClap;
+// const Usage = () => {
+//   return (
+//     <MediumClap>
+//       <ClapIcon />
+//       <ClapCount />
+//       <CountTotal />
+//     </MediumClap>
+//   );
+// };
+
+// export default Usage;
+
+MediumClap.icon = ClapIcon;
+MediumClap.count = ClapCount;
+MediumClap.total = CountTotal;
+
+const INITIAL_STATE = {
+  count: 0,
+  countTotal: 2100,
+  isClicked: false,
+};
+
+const MAX_CLAP_VAL = 10;
+
+const Usage = () => {
+  const [state, setState] = useState(INITIAL_STATE);
+
+  const handleClap = () => {
+    setState(({ count, countTotal }) => ({
+      count: Math.min(count + 1, MAX_CLAP_VAL),
+      countTotal: count < MAX_CLAP_VAL ? countTotal + 1 : countTotal,
+      isClicked: true,
+    }));
+  };
+
+  return (
+    <div style={{ width: "100%" }}>
+      <MediumClap
+        values={state}
+        onClap={handleClap}
+        className={usageStyles.clap}
+      >
+        <MediumClap.icon className={usageStyles.icon} />
+        <MediumClap.count className={usageStyles.count} />
+        <MediumClap.total className={usageStyles.total} />
+      </MediumClap>
+      <MediumClap
+        values={state}
+        onClap={handleClap}
+        className={usageStyles.clap}
+      >
+        <MediumClap.icon className={usageStyles.icon} />
+        <MediumClap.count className={usageStyles.count} />
+        <MediumClap.total className={usageStyles.total} />
+      </MediumClap>
+      {/* Reusable styles */}
+      {/* <MediumClap onClap={handleClap} userStyles={{ border: "1px solid red" }}>
+          <MediumClap.icon userStyles={{}} />
+          <MediumClap.count
+            userStyles={{ background: "#8cacea", color: "white" }}
+          />
+          <MediumClap.total
+            userStyles={{ background: "#8cacea", color: "white" }}
+          />
+        </MediumClap> */}
+      {!!state.count && <div>You have clapped {state.count} times</div>}
+    </div>
+  );
+};
+
+export default Usage;
